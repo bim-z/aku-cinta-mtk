@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simulasi Matriks Rotasi 3D (TMA111)</title>
+    <!-- Memuat Three.js via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
       body {
@@ -21,6 +22,8 @@
         border-radius: 10px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         width: 350px;
+        max-height: 90vh;
+        overflow-y: auto;
       }
       h3 {
         margin-top: 0;
@@ -77,21 +80,21 @@
 
       <div class="control-group">
         <label style="color: red"
-          >Roll (Sumbu X_L): <span id="valX">0</span>°</label
+          >Roll (Putar Sumbu X_L): <span id="valX">0</span>°</label
         >
         <input type="range" id="roll" min="-180" max="180" value="0" />
       </div>
 
       <div class="control-group">
         <label style="color: green"
-          >Pitch (Sumbu Y_L): <span id="valY">0</span>°</label
+          >Pitch (Putar Sumbu Y_L): <span id="valY">0</span>°</label
         >
         <input type="range" id="pitch" min="-180" max="180" value="0" />
       </div>
 
       <div class="control-group">
         <label style="color: blue"
-          >Yaw (Sumbu Z_L): <span id="valZ">0</span>°</label
+          >Yaw (Putar Sumbu Z_L): <span id="valZ">0</span>°</label
         >
         <input type="range" id="yaw" min="-180" max="180" value="0" />
       </div>
@@ -117,11 +120,9 @@
 
       <div class="legend">
         <strong>Keterangan Visual:</strong><br />
-        <strong>Garis Tebal (Menerus)</strong> = Frame GLOBAL<br />
+        <strong>Garis Tebal</strong> = Frame GLOBAL<br />
         <strong>Garis Putus-Putus</strong> = Frame LOKAL<br />
-        <span style="background: red"></span> Sumbu X |
-        <span style="background: green"></span> Sumbu Y |
-        <span style="background: blue"></span> Sumbu Z
+        <strong>Panah Penunjuk Lurus</strong> = Arah Perpindahan Global -> Lokal
       </div>
     </div>
 
@@ -136,14 +137,15 @@
         1000,
       );
       camera.up.set(0, 0, 1);
-      camera.position.set(6, 6, 5);
+      camera.position.set(7, 7, 6);
       camera.lookAt(0, 0, 0);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      function createTextLabel(mainText, subText, color) {
+      // Fungsi Teks
+      function createTextLabel(mainText, subText, color, isArcLabel = false) {
         const canvas = document.createElement("canvas");
         canvas.width = 256;
         canvas.height = 256;
@@ -153,47 +155,57 @@
         context.textAlign = "center";
         context.textBaseline = "middle";
 
-        context.font = "Bold 90px Arial";
-        context.fillText(mainText, 100, 128);
-
-        context.font = "Bold 60px Arial";
-        context.fillText(subText, 150, 150);
+        if (isArcLabel) {
+          context.font = "Bold 80px Arial";
+          context.fillStyle = "rgba(255, 255, 255, 0.7)";
+          context.fillRect(10, 80, 236, 100);
+          context.fillStyle = color;
+          context.fillText(mainText, 128, 128);
+        } else {
+          context.font = "Bold 90px Arial";
+          context.fillText(mainText, 100, 128);
+          context.font = "Bold 60px Arial";
+          context.fillText(subText, 150, 150);
+        }
 
         const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          depthTest: false,
+        });
         const sprite = new THREE.Sprite(spriteMaterial);
-
-        sprite.scale.set(0.8, 0.8, 1);
+        sprite.scale.set(isArcLabel ? 1.5 : 0.8, isArcLabel ? 1.5 : 0.8, 1);
         return sprite;
       }
 
-      const globalFrame = new THREE.Group();
       const origin = new THREE.Vector3(0, 0, 0);
+      const globalFrame = new THREE.Group();
+      const localFrame = new THREE.Group();
+      scene.add(globalFrame);
+      scene.add(localFrame);
 
+      // Panjang sumbu diseragamkan ke 3.5
+      const axisLength = 3.5;
+
+      // Frame Global
       function createSolidArrow(dir, color) {
-        return new THREE.ArrowHelper(dir, origin, 3.5, color, 0.3, 0.15);
+        return new THREE.ArrowHelper(dir, origin, axisLength, color, 0.3, 0.15);
       }
-
-      const gArrowX = createSolidArrow(new THREE.Vector3(1, 0, 0), 0x990000); // Merah tua
-      const gArrowY = createSolidArrow(new THREE.Vector3(0, 1, 0), 0x007700); // Hijau tua
-      const gArrowZ = createSolidArrow(new THREE.Vector3(0, 0, 1), 0x000099); // Biru tua
+      const gArrowX = createSolidArrow(new THREE.Vector3(1, 0, 0), 0x990000);
+      const gArrowY = createSolidArrow(new THREE.Vector3(0, 1, 0), 0x007700);
+      const gArrowZ = createSolidArrow(new THREE.Vector3(0, 0, 1), 0x000099);
 
       const gLabelX = createTextLabel("X", "G", "#990000");
-      gLabelX.position.set(3.8, 0, 0);
+      gLabelX.position.set(axisLength + 0.3, 0, 0);
       const gLabelY = createTextLabel("Y", "G", "#007700");
-      gLabelY.position.set(0, 3.8, 0);
+      gLabelY.position.set(0, axisLength + 0.3, 0);
       const gLabelZ = createTextLabel("Z", "G", "#000099");
-      gLabelZ.position.set(0, 0, 3.8);
-
+      gLabelZ.position.set(0, 0, axisLength + 0.3);
       globalFrame.add(gArrowX, gArrowY, gArrowZ, gLabelX, gLabelY, gLabelZ);
-      scene.add(globalFrame);
 
-      const localFrame = new THREE.Group();
-
+      // Frame Lokal
       function createDashedArrow(dir, color) {
-        const length = 2.8;
         const group = new THREE.Group();
-
         const material = new THREE.LineDashedMaterial({
           color: color,
           linewidth: 2,
@@ -201,10 +213,10 @@
           dashSize: 0.15,
           gapSize: 0.15,
         });
-
+        // Sisakan sedikit ruang untuk cone
         const points = [
           new THREE.Vector3(0, 0, 0),
-          dir.clone().multiplyScalar(length - 0.4),
+          dir.clone().multiplyScalar(axisLength - 0.4),
         ];
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const line = new THREE.Line(geometry, material);
@@ -213,36 +225,86 @@
         const coneGeo = new THREE.ConeGeometry(0.12, 0.4, 8);
         const coneMat = new THREE.MeshBasicMaterial({ color: color });
         const cone = new THREE.Mesh(coneGeo, coneMat);
-
-        cone.position.copy(dir.clone().multiplyScalar(length - 0.2));
-
-        const axis = new THREE.Vector3(0, 1, 0);
-        cone.quaternion.setFromUnitVectors(axis, dir);
+        cone.position.copy(dir.clone().multiplyScalar(axisLength - 0.2));
+        cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
 
         group.add(line, cone);
         return group;
       }
 
-      const lArrowX = createDashedArrow(new THREE.Vector3(1, 0, 0), 0xff0000); // Merah terang
-      const lArrowY = createDashedArrow(new THREE.Vector3(0, 1, 0), 0x00cc00); // Hijau terang
-      const lArrowZ = createDashedArrow(new THREE.Vector3(0, 0, 1), 0x0066ff); // Biru terang
+      const lArrowX = createDashedArrow(new THREE.Vector3(1, 0, 0), 0xff0000);
+      const lArrowY = createDashedArrow(new THREE.Vector3(0, 1, 0), 0x00cc00);
+      const lArrowZ = createDashedArrow(new THREE.Vector3(0, 0, 1), 0x0066ff);
 
       const lLabelX = createTextLabel("X", "L", "#ff0000");
-      lLabelX.position.set(3.0, 0, 0);
+      lLabelX.position.set(axisLength - 0.3, 0, 0);
       const lLabelY = createTextLabel("Y", "L", "#00cc00");
-      lLabelY.position.set(0, 3.0, 0);
+      lLabelY.position.set(0, axisLength - 0.3, 0);
       const lLabelZ = createTextLabel("Z", "L", "#0066ff");
-      lLabelZ.position.set(0, 0, 3.0);
+      lLabelZ.position.set(0, 0, axisLength - 0.3);
 
       localFrame.add(lArrowX, lArrowY, lArrowZ, lLabelX, lLabelY, lLabelZ);
-      scene.add(localFrame);
+
+      // Grup untuk menampung Garis Penunjuk Lurus
+      const indicatorGroup = new THREE.Group();
+      scene.add(indicatorGroup);
+
+      // FUNGSI MENGGAMBAR GARIS PENUNJUK LURUS
+      function drawStraightIndicator(vGlobal, vLocal, color, labelText) {
+        // Jarak (sudut) terlalu kecil, tidak perlu digambar
+        if (vGlobal.angleTo(vLocal) < 0.05) return;
+
+        // Titik Awal: Di batang sumbu Global (misal sejauh 2.5 satuan dari pusat)
+        const radiusOffset = 2.5;
+        const startPoint = vGlobal.clone().multiplyScalar(radiusOffset);
+
+        // Titik Tujuan: Di batang sumbu Lokal dengan jarak yang sama dari pusat
+        const endPoint = vLocal.clone().multiplyScalar(radiusOffset);
+
+        // 1. Gambar Garis Lurus
+        const points = [startPoint, endPoint];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+          color: color,
+          linewidth: 2,
+        });
+        const line = new THREE.Line(geometry, material);
+        indicatorGroup.add(line);
+
+        // 2. Gambar Kepala Panah di EndPoint
+        const direction = new THREE.Vector3()
+          .subVectors(endPoint, startPoint)
+          .normalize();
+
+        const coneGeo = new THREE.ConeGeometry(0.12, 0.4, 8);
+        const coneMat = new THREE.MeshBasicMaterial({ color: color });
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+
+        cone.position.copy(endPoint);
+        // Putar cone agar searah dengan garis yang baru dibuat
+        cone.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction,
+        );
+        indicatorGroup.add(cone);
+
+        // 3. Tambahkan Label Sudut di Tengah Garis
+        const midPoint = new THREE.Vector3()
+          .addVectors(startPoint, endPoint)
+          .multiplyScalar(0.5);
+        // Dorong sedikit labelnya menjauh dari titik 0 agar tidak tertimpa garis
+        midPoint.multiplyScalar(1.1);
+
+        const label = createTextLabel(labelText, "", color, true);
+        label.position.copy(midPoint);
+        indicatorGroup.add(label);
+      }
 
       const inputs = {
         roll: document.getElementById("roll"),
         pitch: document.getElementById("pitch"),
         yaw: document.getElementById("yaw"),
       };
-
       const labels = {
         x: document.getElementById("valX"),
         y: document.getElementById("valY"),
@@ -253,7 +315,6 @@
         const rDeg = parseFloat(inputs.roll.value);
         const pDeg = parseFloat(inputs.pitch.value);
         const yDeg = parseFloat(inputs.yaw.value);
-
         labels.x.innerText = rDeg;
         labels.y.innerText = pDeg;
         labels.z.innerText = yDeg;
@@ -262,6 +323,7 @@
         const pRad = THREE.MathUtils.degToRad(pDeg);
         const yRad = THREE.MathUtils.degToRad(yDeg);
 
+        // Update Rotasi Lokal
         localFrame.quaternion.identity();
         const qRoll = new THREE.Quaternion().setFromAxisAngle(
           new THREE.Vector3(1, 0, 0),
@@ -279,21 +341,48 @@
         localFrame.quaternion.multiply(qYaw);
         localFrame.quaternion.multiply(qPitch);
         localFrame.quaternion.multiply(qRoll);
-
         localFrame.updateMatrix();
 
+        // ==========================================
+        // GAMBAR GARIS PENUNJUK LURUS
+        // ==========================================
+        // Hapus garis penunjuk sebelumnya
+        while (indicatorGroup.children.length > 0) {
+          indicatorGroup.remove(indicatorGroup.children[0]);
+        }
+
+        const vGlobalX = new THREE.Vector3(1, 0, 0);
+        const vGlobalY = new THREE.Vector3(0, 1, 0);
+        const vGlobalZ = new THREE.Vector3(0, 0, 1);
+
+        const vLocalX = vGlobalX.clone().applyQuaternion(localFrame.quaternion);
+        const vLocalY = vGlobalY.clone().applyQuaternion(localFrame.quaternion);
+        const vLocalZ = vGlobalZ.clone().applyQuaternion(localFrame.quaternion);
+
+        const degX = Math.round(
+          THREE.MathUtils.radToDeg(vGlobalX.angleTo(vLocalX)),
+        );
+        const degY = Math.round(
+          THREE.MathUtils.radToDeg(vGlobalY.angleTo(vLocalY)),
+        );
+        const degZ = Math.round(
+          THREE.MathUtils.radToDeg(vGlobalZ.angleTo(vLocalZ)),
+        );
+
+        // Panggil fungsi untuk menggambar garis lurus penghubung dari sumbu Global ke Lokal
+        drawStraightIndicator(vGlobalX, vLocalX, 0xdd0000, `${degX}°`); // Untuk X
+        drawStraightIndicator(vGlobalY, vLocalY, 0x00aa00, `${degY}°`); // Untuk Y
+        drawStraightIndicator(vGlobalZ, vLocalZ, 0x0044dd, `${degZ}°`); // Untuk Z
+
+        // Update Matriks Teks
         const me = localFrame.matrix.elements;
-
         const formatNum = (num) => (num + 0).toFixed(3);
-
         document.getElementById("m00").innerText = formatNum(me[0]);
         document.getElementById("m10").innerText = formatNum(me[1]);
         document.getElementById("m20").innerText = formatNum(me[2]);
-
         document.getElementById("m01").innerText = formatNum(me[4]);
         document.getElementById("m11").innerText = formatNum(me[5]);
         document.getElementById("m21").innerText = formatNum(me[6]);
-
         document.getElementById("m02").innerText = formatNum(me[8]);
         document.getElementById("m12").innerText = formatNum(me[9]);
         document.getElementById("m22").innerText = formatNum(me[10]);
